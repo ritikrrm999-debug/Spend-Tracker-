@@ -1,0 +1,43 @@
+name: Firebase Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+      FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Inject Firebase keys into main.js
+        run: |
+          sed -i "s/process.env.FIREBASE_API_KEY/$FIREBASE_API_KEY/g" main.js
+          sed -i "s/process.env.FIREBASE_AUTH_DOMAIN/$FIREBASE_AUTH_DOMAIN/g" main.js
+          sed -i "s/process.env.FIREBASE_PROJECT_ID/$FIREBASE_PROJECT_ID/g" main.js
+          sed -i "s/process.env.FIREBASE_STORAGE_BUCKET/$FIREBASE_STORAGE_BUCKET/g" main.js
+          sed -i "s/process.env.FIREBASE_MESSAGING_SENDER_ID/$FIREBASE_MESSAGING_SENDER_ID/g" main.js
+          sed -i "s/process.env.FIREBASE_APP_ID/$FIREBASE_APP_ID/g" main.js
+
+      - name: Deploy to Firebase Hosting
+        uses: w9jds/firebase-action@v2.2.0
+        with:
+          args: deploy --only hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
