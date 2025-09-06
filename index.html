@@ -1,8 +1,287 @@
 <!DOCTYPE html>
-<html>
-<head><title>Firebase Test</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Money Spend Tracker (Firebase)</title>
+
+  <!-- Firebase (namespace style) -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
+
+  <!-- Utilities -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f4f9; }
+    header { background: #4a90e2; color: white; padding: 15px; text-align: center; font-size: 20px; }
+    nav { display: flex; justify-content: space-around; background: #333; }
+    nav button { flex: 1; padding: 12px; background: #333; border: none; color: white; cursor: pointer; font-size: 16px; }
+    nav button.active { background: #4a90e2; }
+    section { display: none; padding: 20px; }
+    section.active { display: block; }
+    input, button, select { padding: 8px; margin: 5px 0; font-size: 14px; }
+    .list-item { background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; }
+    .summary { margin-top: 20px; padding: 10px; background: #fff; border-radius: 6px; }
+    #logoutBtn { background: crimson; color: white; padding: 8px; margin: 10px; border: none; cursor: pointer; }
+    .container { max-width: 900px; margin: 12px auto; }
+    label { display:block; margin-top:8px; }
+  </style>
+</head>
 <body>
-  <h1>🚀 Firebase Hosting is working!</h1>
-  <h1>My First Webpage fmgoes online</h1>
+  <div class="container">
+    <header>ðŸ’° Money Spend Tracker (Firebase)</header>
+
+    <!-- Login Page -->
+    <section id="loginPage" class="active">
+      <h2>Login / Sign Up</h2>
+      <input type="email" id="email" placeholder="Email" /><br/>
+      <input type="password" id="password" placeholder="Password" /><br/>
+      <button onclick="signup()">Sign Up</button>
+      <button onclick="login()">Login</button>
+      <button onclick="googleLogin()">Login with Google</button>
+      <div id="loginMsg"></div>
+    </section>
+
+    <!-- App Page (hidden until login) -->
+    <section id="appPage" style="display:none;">
+      <nav>
+        <button class="tab-btn active" data-tab="spend">Spend</button>
+        <button class="tab-btn" data-tab="history">History</button>
+        <button class="tab-btn" data-tab="search">Search</button>
+        <button class="tab-btn" data-tab="export">Export</button>
+      </nav>
+
+      <button id="logoutBtn" onclick="logout()">Logout</button>
+
+      <!-- Spend Tab -->
+      <section id="spend" class="active">
+        <h2>Add Spend</h2>
+        <label>Date:</label>
+        <input type="date" id="spendDate" /><br/>
+        <label>Item:</label>
+        <input type="text" id="spendItem" placeholder="Item name" /><br/>
+        <label>Price (â‚¹):</label>
+        <input type="number" id="spendPrice" placeholder="Amount" /><br/>
+        <button onclick="addSpend()">Save</button>
+        <div id="spendMsg"></div>
+      </section>
+
+      <!-- History Tab -->
+      <section id="history">
+        <h2>Last 5 Purchases</h2>
+        <div id="historyList"></div>
+      </section>
+
+      <!-- Search Tab -->
+      <section id="search">
+        <h2>Search Spending by Item</h2>
+        <input type="text" id="searchItem" placeholder="Enter item name (partial match)" />
+        <button onclick="searchItemSpend()">Search</button>
+        <div id="itemResult"></div>
+        <div id="itemSummary" class="summary"></div>
+      </section>
+
+      <!-- Export Tab -->
+      <section id="export">
+        <h2>Export Spends to Excel</h2>
+        <label>From:</label>
+        <input type="date" id="fromDate" /><br/>
+        <label>To:</label>
+        <input type="date" id="toDate" /><br/>
+        <button onclick="downloadExcel()">Download Excel</button>
+        <div id="exportMsg"></div>
+      </section>
+    </section>
+  </div>
+
+  <script>
+    // ---- REPLACE this config with your Firebase project's config ----
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    // -----------------------------------------------------------------
+
+    // Initialize Firebase (namespaced style)
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+
+    // Tabs switching (only for appPage sections)
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        // sections directly under appPage (spend, history, search, export)
+        document.querySelectorAll('#appPage > section').forEach(sec => sec.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById(tab).classList.add('active');
+        if (tab === 'history') loadHistory();
+      });
+    });
+
+    // ----------------- Authentication -----------------
+    function signup() {
+      const email = document.getElementById("email").value.trim();
+      const pass = document.getElementById("password").value;
+      if (!email || !pass) { document.getElementById("loginMsg").innerText = "Enter email and password"; return; }
+      auth.createUserWithEmailAndPassword(email, pass)
+        .then(() => document.getElementById("loginMsg").innerText = "âœ… Account created!")
+        .catch(err => document.getElementById("loginMsg").innerText = err.message);
+    }
+
+    function login() {
+      const email = document.getElementById("email").value.trim();
+      const pass = document.getElementById("password").value;
+      if (!email || !pass) { document.getElementById("loginMsg").innerText = "Enter email and password"; return; }
+      auth.signInWithEmailAndPassword(email, pass)
+        .catch(err => document.getElementById("loginMsg").innerText = err.message);
+    }
+
+    function googleLogin() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(err => document.getElementById("loginMsg").innerText = err.message);
+    }
+
+    function logout() { auth.signOut(); }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("loginPage").style.display = "none";
+        document.getElementById("appPage").style.display = "block";
+        document.getElementById("loginMsg").innerText = "";
+        // optional: preload history/search data
+        loadHistory();
+      } else {
+        currentUser = null;
+        document.getElementById("loginPage").style.display = "block";
+        document.getElementById("appPage").style.display = "none";
+      }
+    });
+
+    // ----------------- Firestore operations -----------------
+
+    // Add spend for current user
+    async function addSpend() {
+      if (!currentUser) { alert("Please login first"); return; }
+      const date = document.getElementById("spendDate").value;
+      const item = document.getElementById("spendItem").value.trim();
+      const price = parseFloat(document.getElementById("spendPrice").value);
+      if (!date || !item || isNaN(price)) { alert("Enter valid date, item and price"); return; }
+
+      try {
+        await db.collection("users").doc(currentUser.uid).collection("spends").add({ date, item, price });
+        document.getElementById("spendMsg").innerText = "âœ… Saved!";
+        document.getElementById("spendItem").value = "";
+        document.getElementById("spendPrice").value = "";
+      } catch (err) {
+        document.getElementById("spendMsg").innerText = "Error: " + err.message;
+      }
+    }
+
+    // Load last 5 purchases
+    async function loadHistory() {
+      if (!currentUser) return;
+      try {
+        const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
+          .orderBy("date", "desc").limit(5).get();
+        const list = document.getElementById("historyList");
+        list.innerHTML = "";
+        if (snap.empty) { list.innerHTML = "<p>No recent purchases.</p>"; return; }
+        snap.forEach(doc => {
+          const e = doc.data();
+          list.innerHTML += `<div class="list-item">${e.date}: ${e.item} - â‚¹${e.price}</div>`;
+        });
+      } catch (err) {
+        document.getElementById("historyList").innerText = "Error: " + err.message;
+      }
+    }
+
+    // Search spends by item (partial match)
+    async function searchItemSpend() {
+      if (!currentUser) { alert("Login first"); return; }
+      const query = document.getElementById("searchItem").value.trim().toLowerCase();
+      const resultDiv = document.getElementById("itemResult");
+      const summaryDiv = document.getElementById("itemSummary");
+      resultDiv.innerHTML = ""; summaryDiv.innerHTML = "";
+
+      if (!query) { resultDiv.innerHTML = "<p>Type something to search (partial match).</p>"; return; }
+
+      try {
+        const snap = await db.collection("users").doc(currentUser.uid).collection("spends").get();
+        const data = snap.docs.map(d => d.data());
+        const filtered = data.filter(e => e.item.toLowerCase().includes(query));
+        if (filtered.length === 0) { resultDiv.innerHTML = `<p>No records found for "${query}".</p>`; return; }
+
+        let total = 0;
+        // show each occurrence (date + item + price)
+        filtered.sort((a,b) => a.date.localeCompare(b.date));
+        filtered.forEach(e => {
+          resultDiv.innerHTML += `<div class="list-item">${e.date}: ${e.item} - â‚¹${e.price}</div>`;
+          total += e.price;
+        });
+
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+        let monthlyTotal = 0;
+        filtered.forEach(e => {
+          const d = new Date(e.date);
+          if (d.getMonth() === month && d.getFullYear() === year) monthlyTotal += e.price;
+        });
+
+        summaryDiv.innerHTML = `
+          <h3>ðŸ“Š Item Summary</h3>
+          <p>Total times spent: ${filtered.length}</p>
+          <p>Overall spend: â‚¹${total}</p>
+          <p>This month's spend: â‚¹${monthlyTotal}</p>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = "Error: " + err.message;
+      }
+    }
+
+    // Export spends to Excel between two dates (inclusive)
+    async function downloadExcel() {
+      if (!currentUser) { alert("Login first"); return; }
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      const msg = document.getElementById("exportMsg");
+      msg.innerText = "";
+      if (!from || !to) { alert("Please select both From and To dates"); return; }
+      if (from > to) { alert("From date must be earlier than To date"); return; }
+
+      try {
+        // Firestore query using string dates (YYYY-MM-DD) -- lexicographic comparison works
+        const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
+          .where("date", ">=", from).where("date", "<=", to).orderBy("date").get();
+
+        if (snap.empty) { alert("No records found in this range"); return; }
+
+        const rows = snap.docs.map(d => d.data()).map(e => ({ Date: e.date, Item: e.item, Price: e.price }));
+        const total = rows.reduce((s,r) => s + (Number(r.Price)||0), 0);
+        rows.push({ Date: "TOTAL", Item: "", Price: total });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Spends");
+        const filename = `Spends_${from}_to_${to}.xlsx`;
+        XLSX.writeFile(wb, filename);
+
+        msg.innerText = "âœ… Exported: " + filename;
+      } catch (err) {
+        msg.innerText = "Error: " + err.message;
+      }
+    }
+  </script>
 </body>
 </html>
