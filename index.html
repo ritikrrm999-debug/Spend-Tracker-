@@ -2,32 +2,368 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Secure Firebase Auth App</title>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
-  <script src="main.js" type="module"></script>
+  <title>Money Spend Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f9; }
+    header { background: #4a90e2; color: white; padding: 15px; text-align: center; font-size: 20px; }
+    nav { display: flex; justify-content: space-around; background: #333; }
+    nav button { flex: 1; padding: 12px; background: #333; border: none; color: white; cursor: pointer; font-size: 16px; }
+    nav button.active { background: #4a90e2; }
+    section { display: none; padding: 20px; }
+    section.active { display: block; }
+    input, button, select { padding: 8px; margin: 5px 0; font-size: 14px; }
+    .list { margin-top: 15px; }
+    .list-item { background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .list-item span { flex: 1; }
+    .list-item button { margin-left: 5px; }
+    .total { font-weight: bold; margin-top: 10px; }
+    .summary { margin-top: 20px; padding: 10px; background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    canvas { margin-top: 20px; background: #fff; padding: 10px; border-radius: 6px; }
+  </style>
 </head>
 <body>
-  <h1>Firebase Auth Example</h1>
+  <header>ðŸ’° Money Spend Tracker</header>
+  <nav>
+    <button class="tab-btn active" data-tab="home">Home</button>
+    <button class="tab-btn" data-tab="spend">Spend</button>
+    <button class="tab-btn" data-tab="history">History</button>
+    <button class="tab-btn" data-tab="export">Export</button>
+  </nav>
 
-  <div id="auth-section">
-    <h2>Sign Up</h2>
-    <input type="email" id="signup-email" placeholder="Email">
-    <input type="password" id="signup-password" placeholder="Password">
-    <button id="signup-btn">Sign Up</button>
+  <!-- Home Tab -->
+  <section id="home" class="active">
+    <h2>Check Spending by Date</h2>
+    <input type="date" id="homeDate">
+    <button onclick="showDaySpend()">Show</button>
+    <div id="homeResult" class="list"></div>
+    <div id="summaryResult" class="summary"></div>
+    <canvas id="weekChart"></canvas>
+    <canvas id="monthChart"></canvas>
 
-    <h2>Login</h2>
-    <input type="email" id="login-email" placeholder="Email">
-    <input type="password" id="login-password" placeholder="Password">
-    <button id="login-btn">Login</button>
+    <hr>
+    <h2>Check Spending by Item</h2>
+    <input type="text" id="searchItem" placeholder="Enter item name">
+    <button onclick="searchItemSpend()">Search</button>
+    <div id="itemResult" class="list"></div>
+    <div id="itemSummary" class="summary"></div>
+  </section>
 
-    <h2>Logout</h2>
-    <button id="logout-btn">Logout</button>
-  </div>
+  <!-- Spend Tab -->
+  <section id="spend">
+    <h2>Add Spend</h2>
+    <label>Date:</label><br>
+    <input type="date" id="spendDate"><br>
+    <label>Item:</label><br>
+    <input type="text" id="spendItem" placeholder="Item name"><br>
+    <label>Price:</label><br>
+    <input type="number" id="spendPrice" placeholder="Amount"><br>
+    <button onclick="addSpend()">Save</button>
+    <div id="spendMsg"></div>
+  </section>
 
-  <div id="user-info" style="display:none;">
-    <h2>Welcome, <span id="user-email"></span></h2>
-  </div>
+  <!-- History Tab -->
+  <section id="history">
+    <h2>Last 5 Purchases</h2>
+    <div id="historyList" class="list"></div>
+  </section>
 
+  <!-- Export Tab -->
+  <section id="export">
+    <h2>Download Data</h2>
+    <label>From:</label><br>
+    <input type="date" id="fromDate"><br>
+    <label>To:</label><br>
+    <input type="date" id="toDate"><br>
+    <button onclick="downloadExcel()">Download Excel</button>
+  </section>
+
+  <script>
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === "history") loadHistory();
+      });
+    });
+
+    // Format date in local timezone
+    function formatDateLocal(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Storage helpers
+    function getData() { return JSON.parse(localStorage.getItem("spends") || "[]"); }
+    function saveData(data) { localStorage.setItem("spends", JSON.stringify(data)); }
+
+    // Add Spend
+    function addSpend() {
+      const date = document.getElementById("spendDate").value;
+      const item = document.getElementById("spendItem").value.trim();
+      const price = parseFloat(document.getElementById("spendPrice").value);
+      if (!date || !item || isNaN(price)) { alert("Please enter date, item and price"); return; }
+      const data = getData();
+      data.push({ date, item, price });
+      saveData(data);
+      document.getElementById("spendMsg").innerText = "âœ… Saved!";
+      document.getElementById("spendItem").value = "";
+      document.getElementById("spendPrice").value = "";
+    }
+
+    // Week range
+    function getWeekRange(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((day + 6) % 7));
+      monday.setHours(0,0,0,0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23,59,59,999);
+      return [monday, sunday];
+    }
+
+    let weekChart, monthChart;
+
+    // Show spends + charts
+    function showDaySpend() {
+      const date = document.getElementById("homeDate").value;
+      const resultDiv = document.getElementById("homeResult");
+      const summaryDiv = document.getElementById("summaryResult");
+      resultDiv.innerHTML = ""; summaryDiv.innerHTML = "";
+      if (!date) { alert("Please select a date"); return; }
+
+      let data = getData();
+      let totalDay = 0;
+
+      const dayData = data.filter(e => e.date === date);
+      if (dayData.length === 0) {
+        resultDiv.innerHTML = "<p>No records for this date.</p>";
+      } else {
+        dayData.forEach((e, idx) => {
+          const div = document.createElement("div");
+          div.className = "list-item";
+          div.innerHTML = `
+            <span>${e.item} - â‚¹${e.price}</span>
+            <button onclick="editSpend('${date}', ${idx})">âœï¸</button>
+            <button onclick="deleteSpend('${date}', ${idx})">ðŸ—‘ï¸</button>
+          `;
+          resultDiv.appendChild(div);
+          totalDay += e.price;
+        });
+        resultDiv.innerHTML += `<div class="total">Total (Day): â‚¹${totalDay}</div>`;
+      }
+
+      drawCharts(date, data);
+    }
+
+    // Draw charts
+    function drawCharts(date, data) {
+      const summaryDiv = document.getElementById("summaryResult");
+
+      const [monday, sunday] = getWeekRange(date);
+      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      let weeklyMap = {};
+      for (let i = 0; i < 7; ++i) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        weeklyMap[dayNames[i]] = { sum: 0, date: formatDateLocal(d) };
+      }
+      let totalWeek = 0;
+      data.forEach(e => {
+        const d = new Date(e.date);
+        if (d >= monday && d <= sunday) {
+          totalWeek += e.price;
+          const idx = Math.floor((d - monday) / (1000*60*60*24));
+          if (idx >= 0 && idx < 7) weeklyMap[dayNames[idx]].sum += e.price;
+        }
+      });
+
+      const selDate = new Date(date);
+      const selMonth = selDate.getMonth();
+      const selYear = selDate.getFullYear();
+      let monthlyMap = {};
+      let totalMonth = 0, totalYear = 0;
+      data.forEach(e => {
+        const d = new Date(e.date);
+        if (d.getMonth() === selMonth && d.getFullYear() === selYear) {
+          const day = d.getDate();
+          monthlyMap[day] = (monthlyMap[day] || 0) + e.price;
+          totalMonth += e.price;
+        }
+        if (d.getFullYear() === selYear) totalYear += e.price;
+      });
+
+      summaryDiv.innerHTML = `
+        <h3>ðŸ“Š Summary</h3>
+        <p>Week Total: â‚¹${totalWeek}</p>
+        <p>Month Total: â‚¹${totalMonth}</p>
+        <p>Year Total: â‚¹${totalYear}</p>
+      `;
+
+      const weekCtx = document.getElementById("weekChart").getContext("2d");
+      const monthCtx = document.getElementById("monthChart").getContext("2d");
+      if (weekChart) weekChart.destroy();
+      if (monthChart) monthChart.destroy();
+
+      weekChart = new Chart(weekCtx, {
+        type: "bar",
+        data: {
+          labels: dayNames,
+          datasets: [{
+            label: "Weekly Spending",
+            data: dayNames.map(dn => weeklyMap[dn].sum),
+            backgroundColor: "#4a90e2"
+          }]
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+      });
+
+      const daysInMonth = Object.keys(monthlyMap).map(Number).sort((a,b) => a-b);
+      monthChart = new Chart(monthCtx, {
+        type: "line",
+        data: {
+          labels: daysInMonth.map(String),
+          datasets: [{
+            label: "Monthly Spending",
+            data: daysInMonth.map(d => monthlyMap[d]),
+            fill: false,
+            borderColor: "blue"
+          }]
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    // Search by Item (partial match)
+    function searchItemSpend() {
+      const query = document.getElementById("searchItem").value.trim().toLowerCase();
+      const resultDiv = document.getElementById("itemResult");
+      const summaryDiv = document.getElementById("itemSummary");
+      resultDiv.innerHTML = ""; summaryDiv.innerHTML = "";
+
+      if (!query) { alert("Please enter an item name to search"); return; }
+
+      let data = getData();
+      let filtered = data.filter(e => e.item.toLowerCase().includes(query));
+
+      if (filtered.length === 0) {
+        resultDiv.innerHTML = `<p>No records found for "${query}".</p>`;
+        return;
+      }
+
+      let total = 0;
+      filtered.forEach(e => {
+        const div = document.createElement("div");
+        div.className = "list-item";
+        div.innerText = `${e.date}: â‚¹${e.price}`;
+        resultDiv.appendChild(div);
+        total += e.price;
+      });
+
+      const now = new Date();
+      const thisMonth = now.getMonth();
+      const thisYear = now.getFullYear();
+      let monthlyTotal = 0;
+      filtered.forEach(e => {
+        const d = new Date(e.date);
+        if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
+          monthlyTotal += e.price;
+        }
+      });
+
+      summaryDiv.innerHTML = `
+        <h3>ðŸ“Š Item Summary</h3>
+        <p>Total times spent: ${filtered.length}</p>
+        <p>Overall spend: â‚¹${total}</p>
+        <p>This month's spend: â‚¹${monthlyTotal}</p>
+      `;
+    }
+
+    // Edit spend
+    function editSpend(date, idx) {
+      const data = getData();
+      const dayData = data.filter(e => e.date === date);
+      const spend = dayData[idx];
+      const list = document.getElementById("homeResult").children;
+      const div = list[idx];
+      div.innerHTML = `
+        <input type="text" id="editItem" value="${spend.item}">
+        <input type="number" id="editPrice" value="${spend.price}">
+        <button onclick="saveEdit('${date}', ${idx})">ðŸ’¾ Save</button>
+        <button onclick="showDaySpend()">âŒ Cancel</button>
+      `;
+    }
+
+    function saveEdit(date, idx) {
+      let data = getData();
+      const matches = data.map((e,i) => ({...e,i})).filter(e => e.date === date);
+      const spendIndex = matches[idx].i;
+      const item = document.getElementById("editItem").value.trim();
+      const price = parseFloat(document.getElementById("editPrice").value);
+      if (!item || isNaN(price)) { alert("Enter valid values"); return; }
+      data[spendIndex].item = item;
+      data[spendIndex].price = price;
+      saveData(data);
+      showDaySpend();
+    }
+
+    function deleteSpend(date, idx) {
+      if (!confirm("Delete this record?")) return;
+      let data = getData();
+      const matches = data.map((e,i) => ({...e,i})).filter(e => e.date === date);
+      const spendIndex = matches[idx].i;
+      data.splice(spendIndex, 1);
+      saveData(data);
+      showDaySpend();
+    }
+
+    function loadHistory() {
+      const data = getData().slice(-5).reverse();
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      if (data.length === 0) { list.innerHTML = "<p>No recent purchases.</p>"; return; }
+      data.forEach(e => {
+        const div = document.createElement("div");
+        div.className = "list-item";
+        div.innerText = `${e.date}: ${e.item} - â‚¹${e.price}`;
+        list.appendChild(div);
+      });
+    }
+
+    function downloadExcel() {
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      if (!from || !to) { alert("Please select both dates"); return; }
+
+      let data = getData().filter(e => {
+        const d = new Date(e.date);
+        return d >= new Date(from) && d <= new Date(to);
+      });
+
+      if (data.length === 0) { alert("No records found in this range"); return; }
+
+      data.sort((a,b) => new Date(a.date) - new Date(b.date));
+      const total = data.reduce((sum,e) => sum + e.price, 0);
+      data.push({ date: "TOTAL", item: "", price: total });
+
+      const exportData = data.map(e => {
+        if (e.date === "TOTAL") return e;
+        return { date: formatDateLocal(new Date(e.date)), item: e.item, price: e.price };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Spends");
+      XLSX.writeFile(wb, `Spends_${from}_to_${to}.xlsx`);
+    }
+  </script>
 </body>
 </html>
