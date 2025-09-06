@@ -2,91 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Login - Spend Tracker</title>
+  <title>Secure Firebase Auth App</title>
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
-  <style>
-    body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f4f9; font-family: Arial; }
-    .container { text-align: center; }
-    .btn { display: block; width: 250px; margin: 15px auto; padding: 15px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; }
-    .login { background: #4a90e2; color: white; }
-    .signup { background: #27ae60; color: white; }
-    .google { background: #db4437; color: white; }
-    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; }
-    .modal-content { background:white; padding:20px; border-radius:8px; text-align:center; }
-    input { padding:10px; margin:5px; width: 90%; }
-  </style>
+  <script src="main.js" type="module"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>💰 Spend Tracker</h1>
-    <button class="btn login" onclick="openModal('loginModal')">Login</button>
-    <button class="btn signup" onclick="openModal('signupModal')">Signup</button>
-    <button class="btn google" onclick="googleLogin()">Sign in with Google</button>
-    <p id="msg"></p>
+  <h1>Firebase Auth Example</h1>
+
+  <div id="auth-section">
+    <h2>Sign Up</h2>
+    <input type="email" id="signup-email" placeholder="Email">
+    <input type="password" id="signup-password" placeholder="Password">
+    <button id="signup-btn">Sign Up</button>
+
+    <h2>Login</h2>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-password" placeholder="Password">
+    <button id="login-btn">Login</button>
+
+    <h2>Logout</h2>
+    <button id="logout-btn">Logout</button>
   </div>
 
-  <!-- Login Modal -->
-  <div class="modal" id="loginModal">
-    <div class="modal-content">
-      <h2>Login</h2>
-      <input type="email" id="loginEmail" placeholder="Email"><br>
-      <input type="password" id="loginPass" placeholder="Password"><br>
-      <button onclick="login()">Login</button>
-      <button onclick="closeModal('loginModal')">Cancel</button>
-    </div>
+  <div id="user-info" style="display:none;">
+    <h2>Welcome, <span id="user-email"></span></h2>
   </div>
 
-  <!-- Signup Modal -->
-  <div class="modal" id="signupModal">
-    <div class="modal-content">
-      <h2>Signup</h2>
-      <input type="email" id="signupEmail" placeholder="Email"><br>
-      <input type="password" id="signupPass" placeholder="Password"><br>
-      <button onclick="signup()">Signup</button>
-      <button onclick="closeModal('signupModal')">Cancel</button>
-    </div>
-  </div>
-
-  <script>
-    // 🔥 Replace with your Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyA8gqPHSTVwnzhIZ3Yyxmnj8n1SDhP0BzE",
-      authDomain: "spend-tracker-3dc96.firebaseapp.com",
-      projectId: "spend-tracker-3dc96",
-      storageBucket: "spend-tracker-3dc96.firebasestorage.app",
-      messagingSenderId: "1091001351958",
-      appId: "1:1091001351958:web:dfd1b8da99d3e245251a37",
-      measurementId: "G-7113DY256X"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-
-    function openModal(id){ document.getElementById(id).style.display="flex"; }
-    function closeModal(id){ document.getElementById(id).style.display="none"; }
-
-    function signup(){
-      const email=document.getElementById("signupEmail").value;
-      const pass=document.getElementById("signupPass").value;
-      auth.createUserWithEmailAndPassword(email, pass)
-        .then(()=>{ document.getElementById("msg").innerText="✅ Account created! Now login."; closeModal('signupModal'); })
-        .catch(e=>alert(e.message));
-    }
-
-    function login(){
-      const email=document.getElementById("loginEmail").value;
-      const pass=document.getElementById("loginPass").value;
-      auth.signInWithEmailAndPassword(email, pass)
-        .then(()=>{ window.location.href="app.html"; })
-        .catch(e=>alert(e.message));
-    }
-
-    function googleLogin(){
-      const provider=new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider)
-        .then(()=>{ window.location.href="app.html"; })
-        .catch(e=>alert(e.message));
-    }
-  </script>
 </body>
 </html>
