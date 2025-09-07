@@ -3,83 +3,204 @@
 <head>
   <meta charset="UTF-8">
   <title>Money Spend Tracker</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f9; }
-    header { background: #4a90e2; color: white; padding: 15px; text-align: center; font-size: 20px; }
-    nav { display: flex; justify-content: space-around; background: #333; }
-    nav button { flex: 1; padding: 12px; background: #333; border: none; color: white; cursor: pointer; font-size: 16px; }
-    nav button.active { background: #4a90e2; }
-    section { display: none; padding: 20px; }
-    section.active { display: block; }
-    input, button, select { padding: 8px; margin: 5px 0; font-size: 14px; }
-    .list { margin-top: 15px; }
-    .list-item { background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-    .list-item span { flex: 1; }
-    .list-item button { margin-left: 5px; }
-    .total { font-weight: bold; margin-top: 10px; }
-    .summary { margin-top: 20px; padding: 10px; background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-    canvas { margin-top: 20px; background: #fff; padding: 10px; border-radius: 6px; }
+    body { font-family: Arial, sans-serif; background:#f4f4f9; margin:0; padding:0; }
+    header { background:#4a90e2; color:white; padding:15px; text-align:center; font-size:20px; position:relative; }
+    #logout-btn { position:absolute; right:15px; top:15px; background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; display:none; }
+
+    #auth-buttons { display:flex; justify-content:center; margin:50px 0; gap:20px; }
+    .auth-btn { padding:12px 20px; border:none; border-radius:6px; cursor:pointer; font-size:16px; }
+    .login { background:#3498db; color:white; }
+    .signup { background:#2ecc71; color:white; }
+    .google { background:#db4437; color:white; }
+
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+    .modal-content { background:white; padding:20px; border-radius:8px; width:300px; text-align:center; }
+    .modal input { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:4px; }
+    .modal button { margin-top:10px; padding:10px; width:100%; border:none; border-radius:6px; background:#4a90e2; color:white; cursor:pointer; }
+
+    #app { display:none; padding:20px; }
+    nav { display:flex; justify-content:space-around; background:#333; }
+    nav button { flex:1; padding:12px; background:#333; border:none; color:white; cursor:pointer; font-size:16px; }
+    nav button.active { background:#4a90e2; }
+    section { display:none; padding:20px; }
+    section.active { display:block; }
+    .list { margin-top:15px; }
+    .list-item { background:white; padding:10px; margin-bottom:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
-  <header>ðŸ’° Money Spend Tracker</header>
-  <nav>
-    <button class="tab-btn active" data-tab="home">Home</button>
-    <button class="tab-btn" data-tab="spend">Spend</button>
-    <button class="tab-btn" data-tab="history">History</button>
-    <button class="tab-btn" data-tab="export">Export</button>
-  </nav>
+  <header>
+    💰 Money Spend Tracker
+    <button id="logout-btn">Logout</button>
+  </header>
 
-  <!-- Home Tab -->
-  <section id="home" class="active">
-    <h2>Check Spending by Date</h2>
-    <input type="date" id="homeDate">
-    <button onclick="showDaySpend()">Show</button>
-    <div id="homeResult" class="list"></div>
-    <div id="summaryResult" class="summary"></div>
-    <canvas id="weekChart"></canvas>
-    <canvas id="monthChart"></canvas>
+  <!-- Auth Buttons -->
+  <div id="auth-section">
+    <div id="auth-buttons">
+      <button class="auth-btn login" onclick="openModal('login')">Login</button>
+      <button class="auth-btn signup" onclick="openModal('signup')">Signup</button>
+      <button class="auth-btn google" onclick="googleLogin()">Sign in with Google</button>
+    </div>
+  </div>
 
-    <hr>
-    <h2>Check Spending by Item</h2>
-    <input type="text" id="searchItem" placeholder="Enter item name">
-    <button onclick="searchItemSpend()">Search</button>
-    <div id="itemResult" class="list"></div>
-    <div id="itemSummary" class="summary"></div>
-  </section>
+  <!-- Login/Signup Modal -->
+  <div id="auth-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="modal-title">Login</h3>
+      <input type="email" id="auth-email" placeholder="Email">
+      <input type="password" id="auth-password" placeholder="Password">
+      <button id="auth-submit">Submit</button>
+      <button onclick="closeModal()" style="background:#aaa;">Cancel</button>
+    </div>
+  </div>
 
-  <!-- Spend Tab -->
-  <section id="spend">
-    <h2>Add Spend</h2>
-    <label>Date:</label><br>
-    <input type="date" id="spendDate"><br>
-    <label>Item:</label><br>
-    <input type="text" id="spendItem" placeholder="Item name"><br>
-    <label>Price:</label><br>
-    <input type="number" id="spendPrice" placeholder="Amount"><br>
-    <button onclick="addSpend()">Save</button>
-    <div id="spendMsg"></div>
-  </section>
+  <!-- App -->
+  <div id="app">
+    <nav>
+      <button class="tab-btn active" data-tab="home">Home</button>
+      <button class="tab-btn" data-tab="spend">Spend</button>
+      <button class="tab-btn" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="export">Export</button>
+    </nav>
+    <section id="home" class="active">
+      <h2>Check Spending by Date</h2>
+      <input type="date" id="homeDate">
+      <button onclick="showDaySpend()">Show</button>
+      <div id="homeResult" class="list"></div>
+    </section>
+    <section id="spend">
+      <h2>Add Spend</h2>
+      <input type="date" id="spendDate"><br>
+      <input type="text" id="spendItem" placeholder="Item name"><br>
+      <input type="number" id="spendPrice" placeholder="Amount"><br>
+      <button onclick="addSpend()">Save</button>
+    </section>
+    <section id="history">
+      <h2>Last 5 Purchases</h2>
+      <div id="historyList" class="list"></div>
+    </section>
+    <section id="export">
+      <h2>Download Data</h2>
+      <label>From:</label><br>
+      <input type="date" id="fromDate"><br>
+      <label>To:</label><br>
+      <input type="date" id="toDate"><br>
+      <button onclick="downloadExcel()">Download Excel</button>
+    </section>
+  </div>
 
-  <!-- History Tab -->
-  <section id="history">
-    <h2>Last 5 Purchases</h2>
-    <div id="historyList" class="list"></div>
-  </section>
-
-  <!-- Export Tab -->
-  <section id="export">
-    <h2>Download Data</h2>
-    <label>From:</label><br>
-    <input type="date" id="fromDate"><br>
-    <label>To:</label><br>
-    <input type="date" id="toDate"><br>
-    <button onclick="downloadExcel()">Download Excel</button>
-  </section>
-
+  <script src="main.js"></script>
   <script>
+    const db = firebase.firestore();
+    let currentMode = "login";
+    let currentUser = null;
+
+    function openModal(mode) {
+      currentMode = mode;
+      document.getElementById("modal-title").innerText = mode === "login" ? "Login" : "Signup";
+      document.getElementById("auth-modal").style.display = "flex";
+    }
+    function closeModal() { document.getElementById("auth-modal").style.display = "none"; }
+
+    document.getElementById("auth-submit").addEventListener("click", () => {
+      const email = document.getElementById("auth-email").value;
+      const password = document.getElementById("auth-password").value;
+      if (currentMode === "login") {
+        auth.signInWithEmailAndPassword(email, password).catch(e => alert(e.message));
+      } else {
+        auth.createUserWithEmailAndPassword(email, password).catch(e => alert(e.message));
+      }
+    });
+
+    function googleLogin() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(e => alert(e.message));
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("auth-section").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        document.getElementById("logout-btn").style.display = "inline-block";
+        loadHistory();
+      } else {
+        currentUser = null;
+        document.getElementById("auth-section").style.display = "block";
+        document.getElementById("app").style.display = "none";
+        document.getElementById("logout-btn").style.display = "none";
+      }
+    });
+
+    document.getElementById("logout-btn").addEventListener("click", () => { auth.signOut(); });
+
+    // Add Spend
+    async function addSpend() {
+      if (!currentUser) return alert("Please login first!");
+      const date = document.getElementById("spendDate").value;
+      const item = document.getElementById("spendItem").value.trim();
+      const price = parseFloat(document.getElementById("spendPrice").value);
+      if (!date || !item || isNaN(price)) return alert("Fill all fields");
+      await db.collection("users").doc(currentUser.uid).collection("spends").add({
+        date, item, price, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      alert("Saved!");
+      document.getElementById("spendItem").value = "";
+      document.getElementById("spendPrice").value = "";
+      loadHistory();
+    }
+
+    // Show by Date
+    async function showDaySpend() {
+      if (!currentUser) return;
+      const date = document.getElementById("homeDate").value;
+      const resultDiv = document.getElementById("homeResult");
+      resultDiv.innerHTML = "";
+      if (!date) return alert("Select a date");
+      const snap = await db.collection("users").doc(currentUser.uid).collection("spends").where("date", "==", date).get();
+      let total = 0;
+      snap.forEach(doc => {
+        const e = doc.data();
+        total += e.price;
+        resultDiv.innerHTML += `<div class="list-item">${e.item} - ₹${e.price}</div>`;
+      });
+      resultDiv.innerHTML += `<div class="list-item"><b>Total: ₹${total}</b></div>`;
+    }
+
+    // History
+    async function loadHistory() {
+      if (!currentUser) return;
+      const snap = await db.collection("users").doc(currentUser.uid).collection("spends").orderBy("createdAt", "desc").limit(5).get();
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      snap.forEach(doc => {
+        const e = doc.data();
+        list.innerHTML += `<div class="list-item">${e.date}: ${e.item} - ₹${e.price}</div>`;
+      });
+    }
+
+    // Export to Excel
+    async function downloadExcel() {
+      if (!currentUser) return;
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      if (!from || !to) return alert("Select both dates");
+      const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
+        .where("date", ">=", from).where("date", "<=", to).orderBy("date").get();
+      let data = [];
+      snap.forEach(doc => data.push(doc.data()));
+      if (data.length === 0) return alert("No records found");
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Spends");
+      XLSX.writeFile(wb, `Spends_${from}_to_${to}.xlsx`);
+    }
+
     // Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -87,29 +208,11 @@
         document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab).classList.add('active');
-        if (btn.dataset.tab === "history") loadHistory();
       });
     });
-
-    // Format date in local timezone
-    function formatDateLocal(d) {
-      const year = d.getFullYear();
-      const month = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      return `${year}-${month}-${day}`;
-    }
-
-    // Storage helpers
-    function getData() { return JSON.parse(localStorage.getItem("spends") || "[]"); }
-    function saveData(data) { localStorage.setItem("spends", JSON.stringify(data)); }
-
-    // Add Spend
-    function addSpend() {
-      const date = document.getElementById("spendDate").value;
-      const item = document.getElementById("spendItem").value.trim();
-      const price = parseFloat(document.getElementById("spendPrice").value);
-      if (!date || !item || isNaN(price)) { alert("Please enter date, item and price"); return; }
-      const data = getData();
+  </script>
+</body>
+</html>      const data = getData();
       data.push({ date, item, price });
       saveData(data);
       document.getElementById("spendMsg").innerText = "âœ… Saved!";
