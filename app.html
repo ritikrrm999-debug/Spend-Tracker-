@@ -3,39 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <title>Money Spend Tracker</title>
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
-
-  <!-- Chart.js and XLSX -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f9; }
-    header { background: #4a90e2; color: white; padding: 15px; text-align: center; font-size: 20px; }
-    nav { display: flex; justify-content: space-around; background: #333; }
-    nav button { flex: 1; padding: 12px; background: #333; border: none; color: white; cursor: pointer; font-size: 16px; }
-    nav button.active { background: #4a90e2; }
-    section { display: none; padding: 20px; }
-    section.active { display: block; }
-    input, button, select { padding: 8px; margin: 5px 0; font-size: 14px; }
-    .list { margin-top: 15px; }
-    .list-item { background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-    .list-item span { flex: 1; }
-    .list-item button { margin-left: 5px; }
-    .total { font-weight: bold; margin-top: 10px; }
-    .summary { margin-top: 20px; padding: 10px; background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-    canvas { margin-top: 20px; background: #fff; padding: 10px; border-radius: 6px; }
-    .logout { background: crimson; color: white; padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; float: right; margin: 8px; }
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f9; }
+    header { background:#4a90e2; color:white; padding:15px; text-align:center; font-size:20px; position:relative; }
+    #logout-btn { position:absolute; right:15px; top:15px; background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; }
+
+    nav { display:flex; justify-content:space-around; background:#333; }
+    nav button { flex:1; padding:12px; background:#333; border:none; color:white; cursor:pointer; font-size:16px; }
+    nav button.active { background:#4a90e2; }
+
+    section { display:none; padding:20px; }
+    section.active { display:block; }
+
+    input, button { padding:8px; margin:5px 0; }
+    .list-item { background:white; padding:10px; margin-bottom:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    canvas { background:#fff; margin-top:20px; padding:10px; border-radius:6px; }
+
+    /* Edit Modal */
+    #edit-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+      background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+    #edit-modal .content { background:white; padding:20px; border-radius:8px; width:300px; }
   </style>
 </head>
 <body>
   <header>
     💰 Money Spend Tracker
-    <button class="logout" onclick="logout()">Logout</button>
+    <button id="logout-btn">Logout</button>
   </header>
+
   <nav>
     <button class="tab-btn active" data-tab="home">Home</button>
     <button class="tab-btn" data-tab="spend">Spend</button>
@@ -43,44 +44,28 @@
     <button class="tab-btn" data-tab="export">Export</button>
   </nav>
 
-  <!-- Home Tab -->
   <section id="home" class="active">
     <h2>Check Spending by Date</h2>
     <input type="date" id="homeDate">
     <button onclick="showDaySpend()">Show</button>
-    <div id="homeResult" class="list"></div>
-    <div id="summaryResult" class="summary"></div>
+    <div id="homeResult"></div>
     <canvas id="weekChart"></canvas>
     <canvas id="monthChart"></canvas>
-
-    <hr>
-    <h2>Check Spending by Item</h2>
-    <input type="text" id="searchItem" placeholder="Enter item name">
-    <button onclick="searchItemSpend()">Search</button>
-    <div id="itemResult" class="list"></div>
-    <div id="itemSummary" class="summary"></div>
   </section>
 
-  <!-- Spend Tab -->
   <section id="spend">
     <h2>Add Spend</h2>
-    <label>Date:</label><br>
     <input type="date" id="spendDate"><br>
-    <label>Item:</label><br>
     <input type="text" id="spendItem" placeholder="Item name"><br>
-    <label>Price:</label><br>
     <input type="number" id="spendPrice" placeholder="Amount"><br>
     <button onclick="addSpend()">Save</button>
-    <div id="spendMsg"></div>
   </section>
 
-  <!-- History Tab -->
   <section id="history">
     <h2>Last 5 Purchases</h2>
-    <div id="historyList" class="list"></div>
+    <div id="historyList"></div>
   </section>
 
-  <!-- Export Tab -->
   <section id="export">
     <h2>Download Data</h2>
     <label>From:</label><br>
@@ -88,537 +73,165 @@
     <label>To:</label><br>
     <input type="date" id="toDate"><br>
     <button onclick="downloadExcel()">Download Excel</button>
-    <div id="exportMsg"></div>
   </section>
 
+  <!-- Edit Modal -->
+  <div id="edit-modal">
+    <div class="content">
+      <h3>Edit Spend</h3>
+      <input type="date" id="edit-date"><br>
+      <input type="text" id="edit-item" placeholder="Item"><br>
+      <input type="number" id="edit-price" placeholder="Price"><br>
+      <button onclick="saveEdit()">Save</button>
+      <button onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+
   <script>
-    // 🔥 Replace with your Firebase config
+    // 🔑 Firebase config (replace via GitHub Secrets)
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "${FIREBASE_API_KEY}",
+      authDomain: "${FIREBASE_AUTH_DOMAIN}",
+      projectId: "${FIREBASE_PROJECT_ID}",
+      storageBucket: "${FIREBASE_STORAGE_BUCKET}",
+      messagingSenderId: "${FIREBASE_MESSAGING_SENDER_ID}",
+      appId: "${FIREBASE_APP_ID}"
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
     let currentUser = null;
+    let editId = null;
 
-    // Redirect if not logged in
+    // Auth state check
     auth.onAuthStateChanged(user => {
-      if (!user) {
-        window.location.href = "index.html";
-      } else {
-        currentUser = user;
-      }
+      if (!user) window.location.href = "index.html";
+      else currentUser = user;
     });
 
-    function logout() { auth.signOut(); }
+    document.getElementById("logout-btn").addEventListener("click", () => auth.signOut());
+
+    // Add Spend
+    async function addSpend() {
+      if (!currentUser) return;
+      const date = document.getElementById("spendDate").value;
+      const item = document.getElementById("spendItem").value.trim();
+      const price = parseFloat(document.getElementById("spendPrice").value);
+      if (!date || !item || isNaN(price)) return alert("Fill all fields");
+
+      await db.collection("users").doc(currentUser.uid).collection("spends").add({
+        date, item, price,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      alert("Saved!");
+      document.getElementById("spendItem").value = "";
+      document.getElementById("spendPrice").value = "";
+      loadHistory();
+    }
+
+    // Show daily spends
+    async function showDaySpend() {
+      if (!currentUser) return;
+      const date = document.getElementById("homeDate").value;
+      const resultDiv = document.getElementById("homeResult");
+      resultDiv.innerHTML = "";
+      if (!date) return alert("Select a date");
+
+      const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
+        .where("date", "==", date).get();
+
+      let total = 0;
+      snap.forEach(doc => {
+        const e = doc.data();
+        total += e.price;
+        resultDiv.innerHTML += `
+          <div class="list-item">
+            ${e.item} - ₹${e.price}
+            <button onclick="openEdit('${doc.id}', '${e.date}', '${e.item}', ${e.price})">✏️</button>
+            <button onclick="deleteSpend('${doc.id}')">🗑️</button>
+          </div>`;
+      });
+      resultDiv.innerHTML += `<div class="list-item"><b>Total: ₹${total}</b></div>`;
+    }
+
+    // History
+    async function loadHistory() {
+      if (!currentUser) return;
+      const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
+        .orderBy("createdAt", "desc").limit(5).get();
+      const list = document.getElementById("historyList");
+      if (!list) return;
+      list.innerHTML = "";
+      snap.forEach(doc => {
+        const e = doc.data();
+        list.innerHTML += `
+          <div class="list-item">
+            ${e.date}: ${e.item} - ₹${e.price}
+            <button onclick="openEdit('${doc.id}', '${e.date}', '${e.item}', ${e.price})">✏️</button>
+            <button onclick="deleteSpend('${doc.id}')">🗑️</button>
+          </div>`;
+      });
+    }
+
+    // Edit / Delete
+    function openEdit(id, date, item, price) {
+      editId = id;
+      document.getElementById("edit-date").value = date;
+      document.getElementById("edit-item").value = item;
+      document.getElementById("edit-price").value = price;
+      document.getElementById("edit-modal").style.display = "flex";
+    }
+    function closeEdit() { document.getElementById("edit-modal").style.display = "none"; editId = null; }
+    async function saveEdit() {
+      if (!currentUser || !editId) return;
+      const date = document.getElementById("edit-date").value;
+      const item = document.getElementById("edit-item").value;
+      const price = parseFloat(document.getElementById("edit-price").value);
+      await db.collection("users").doc(currentUser.uid).collection("spends").doc(editId).update({ date, item, price });
+      closeEdit(); alert("Updated!"); showDaySpend(); loadHistory();
+    }
+    async function deleteSpend(id) {
+      if (!currentUser) return;
+      if (!confirm("Delete this record?")) return;
+      await db.collection("users").doc(currentUser.uid).collection("spends").doc(id).delete();
+      alert("Deleted!"); showDaySpend(); loadHistory();
+    }
+
+    // Export Excel with IDs
+    async function downloadExcel() {
+      if (!currentUser) return;
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      if (!from || !to) return alert("Select both dates");
+
+      const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
+        .where("date", ">=", from).where("date", "<=", to).orderBy("date").get();
+
+      let data = [];
+      snap.forEach(doc => {
+        const e = doc.data();
+        data.push({ id: doc.id, date: e.date, item: e.item, price: e.price });
+      });
+      if (data.length === 0) return alert("No records found");
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Spends");
+      XLSX.writeFile(wb, `Spends_${from}_to_${to}.xlsx`);
+    }
 
     // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    document.querySelectorAll('.tab-btn')?.forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab).classList.add('active');
-        if (btn.dataset.tab === "history") loadHistory();
       });
     });
 
-    // Firestore helpers
-    async function getData() {
-      const snap = await db.collection("users").doc(currentUser.uid).collection("spends").get();
-      return snap.docs.map(d => ({ id:d.id, ...d.data() }));
-    }
-    async function saveData(date, item, price) {
-      return db.collection("users").doc(currentUser.uid).collection("spends").add({ date, item, price });
-    }
-    async function updateData(id, item, price) {
-      return db.collection("users").doc(currentUser.uid).collection("spends").doc(id).update({ item, price });
-    }
-    async function deleteData(id) {
-      return db.collection("users").doc(currentUser.uid).collection("spends").doc(id).delete();
-    }
-
-    // Add Spend
-    async function addSpend() {
-      const date = document.getElementById("spendDate").value;
-      const item = document.getElementById("spendItem").value.trim();
-      const price = parseFloat(document.getElementById("spendPrice").value);
-      if (!date || !item || isNaN(price)) { alert("Please enter date, item and price"); return; }
-      await saveData(date, item, price);
-      document.getElementById("spendMsg").innerText = "✅ Saved!";
-      document.getElementById("spendItem").value = "";
-      document.getElementById("spendPrice").value = "";
-    }
-
-    // Show spending by date + charts
-    let weekChart, monthChart;
-    async function showDaySpend() {
-      const date = document.getElementById("homeDate").value;
-      const resultDiv = document.getElementById("homeResult");
-      const summaryDiv = document.getElementById("summaryResult");
-      resultDiv.innerHTML = ""; summaryDiv.innerHTML = "";
-      if (!date) { alert("Please select a date"); return; }
-
-      const data = await getData();
-      const dayData = data.filter(e => e.date === date);
-      let totalDay = 0;
-
-      if (dayData.length === 0) {
-        resultDiv.innerHTML = "<p>No records for this date.</p>";
-      } else {
-        dayData.forEach(e => {
-          const div = document.createElement("div");
-          div.className = "list-item";
-          div.innerHTML = `
-            <span>${e.item} - ₹${e.price}</span>
-            <button onclick="editSpend('${e.id}', '${e.date}', '${e.item}', ${e.price})">✏️</button>
-            <button onclick="deleteSpend('${e.id}', '${date}')">🗑️</button>
-          `;
-          resultDiv.appendChild(div);
-          totalDay += e.price;
-        });
-        resultDiv.innerHTML += `<div class="total">Total (Day): ₹${totalDay}</div>`;
-      }
-
-      drawCharts(date, data);
-    }
-
-    function getWeekRange(date) {
-      const d = new Date(date);
-      const day = d.getDay();
-      const monday = new Date(d);
-      monday.setDate(d.getDate() - ((day + 6) % 7));
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      return [monday, sunday];
-    }
-
-    async function drawCharts(date, data) {
-      const summaryDiv = document.getElementById("summaryResult");
-      const [monday, sunday] = getWeekRange(date);
-      const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-      let weeklyMap = {}; dayNames.forEach(dn => weeklyMap[dn] = 0);
-      let totalWeek = 0, totalMonth=0, totalYear=0, monthlyMap={};
-
-      data.forEach(e => {
-        const d = new Date(e.date);
-        if (d>=monday && d<=sunday) {
-          totalWeek += e.price;
-          weeklyMap[dayNames[d.getDay()===0?6:d.getDay()-1]] += e.price;
-        }
-        const selDate = new Date(date);
-        if (d.getMonth()===selDate.getMonth() && d.getFullYear()===selDate.getFullYear()) {
-          const day = d.getDate();
-          monthlyMap[day]=(monthlyMap[day]||0)+e.price;
-          totalMonth+=e.price;
-        }
-        if (d.getFullYear()===selDate.getFullYear()) totalYear+=e.price;
-      });
-
-      summaryDiv.innerHTML = `<h3>📊 Summary</h3>
-        <p>Week Total: ₹${totalWeek}</p>
-        <p>Month Total: ₹${totalMonth}</p>
-        <p>Year Total: ₹${totalYear}</p>`;
-
-      const weekCtx=document.getElementById("weekChart").getContext("2d");
-      const monthCtx=document.getElementById("monthChart").getContext("2d");
-      if (weekChart) weekChart.destroy();
-      if (monthChart) monthChart.destroy();
-
-      weekChart=new Chart(weekCtx,{type:"bar",data:{labels:dayNames,datasets:[{label:"Weekly Spending",data:Object.values(weeklyMap),backgroundColor:"#4a90e2"}]},options:{scales:{y:{beginAtZero:true}}}});
-      monthChart=new Chart(monthCtx,{type:"line",data:{labels:Object.keys(monthlyMap),datasets:[{label:"Monthly Spending",data:Object.values(monthlyMap),borderColor:"blue"}]},options:{scales:{y:{beginAtZero:true}}}});
-    }
-
-    // Search by item
-    async function searchItemSpend() {
-      const query=document.getElementById("searchItem").value.trim().toLowerCase();
-      const resultDiv=document.getElementById("itemResult");
-      const summaryDiv=document.getElementById("itemSummary");
-      resultDiv.innerHTML=""; summaryDiv.innerHTML="";
-      if (!query) { alert("Please enter an item name"); return; }
-
-      const data=await getData();
-      const filtered=data.filter(e=>e.item.toLowerCase().includes(query));
-      if (filtered.length===0){ resultDiv.innerHTML=`<p>No records found for "${query}".</p>`; return; }
-
-      let total=0, monthlyTotal=0;
-      filtered.forEach(e=>{
-        const div=document.createElement("div");
-        div.className="list-item";
-        div.innerText=`${e.date}: ₹${e.price}`;
-        resultDiv.appendChild(div);
-        total+=e.price;
-        const d=new Date(e.date); const now=new Date();
-        if (d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear()) monthlyTotal+=e.price;
-      });
-
-      summaryDiv.innerHTML=`<h3>📊 Item Summary</h3>
-        <p>Total times spent: ${filtered.length}</p>
-        <p>Overall spend: ₹${total}</p>
-        <p>This month's spend: ₹${monthlyTotal}</p>`;
-    }
-
-    // Edit / Delete
-    function editSpend(id, date, item, price) {
-      const div=document.createElement("div");
-      div.className="list-item";
-      div.innerHTML=`
-        <input type="text" id="editItem" value="${item}">
-        <input type="number" id="editPrice" value="${price}">
-        <button onclick="saveEdit('${id}','${date}')">💾 Save</button>
-        <button onclick="showDaySpend()">✖ Cancel</button>`;
-      document.getElementById("homeResult").prepend(div);
-    }
-
-    async function saveEdit(id,date) {
-      const item=document.getElementById("editItem").value.trim();
-      const price=parseFloat(document.getElementById("editPrice").value);
-      if (!item || isNaN(price)){ alert("Enter valid values"); return; }
-      await updateData(id,item,price);
-      showDaySpend();
-    }
-
-    async function deleteSpend(id,date) {
-      if (!confirm("Delete this record?")) return;
-      await deleteData(id);
-      showDaySpend();
-    }
-
-    // History
-    async function loadHistory() {
-      const list=document.getElementById("historyList");
-      list.innerHTML="";
-      const snap=await db.collection("users").doc(currentUser.uid).collection("spends").orderBy("date","desc").limit(5).get();
-      if (snap.empty){ list.innerHTML="<p>No recent purchases.</p>"; return; }
-      snap.forEach(doc=>{
-        const e=doc.data();
-        const div=document.createElement("div");
-        div.className="list-item";
-        div.innerText=`${e.date}: ${e.item} - ₹${e.price}`;
-        list.appendChild(div);
-      });
-    }
-
-    // Export
-    async function downloadExcel() {
-      const from=document.getElementById("fromDate").value;
-      const to=document.getElementById("toDate").value;
-      if (!from || !to){ alert("Select both dates"); return; }
-      const snap=await db.collection("users").doc(currentUser.uid).collection("spends").where("date",">=",from).where("date","<=",to).orderBy("date").get();
-      if (snap.empty){ alert("No records found in this range"); return; }
-      const rows=snap.docs.map(d=>d.data());
-      const total=rows.reduce((s,r)=>s+(Number(r.price)||0),0);
-      rows.push({date:"TOTAL",item:"",price:total});
-      const ws=XLSX.utils.json_to_sheet(rows);
-      const wb=XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb,ws,"Spends");
-      XLSX.writeFile(wb,`Spends_${from}_to_${to}.xlsx`);
-      document.getElementById("exportMsg").innerText="✅ Exported successfully!";
-    }
-  </script>
-</body>
-</html>
-<input type="text" id="spendItem" placeholder="e.g. Water, Sadguru Hotel">
-
-        <label for="spendPrice">Price (₹)</label>
-        <input type="number" id="spendPrice" placeholder="Amount">
-
-        <button class="primary" onclick="handleAddSpend()">Save</button>
-        <div id="spendMsg" class="small"></div>
-      </div>
-    </section>
-
-    <!-- HISTORY -->
-    <section id="history">
-      <div class="card">
-        <h3>Last 5 Purchases</h3>
-        <div id="historyList"></div>
-      </div>
-    </section>
-
-    <!-- EXPORT -->
-    <section id="export">
-      <div class="card">
-        <h3>Export to Excel</h3>
-        <label>From</label>
-        <input type="date" id="fromDate">
-        <label>To</label>
-        <input type="date" id="toDate">
-        <button class="primary" onclick="downloadExcel()">Download Excel</button>
-        <div id="exportMsg" class="small"></div>
-      </div>
-    </section>
-
-  </main>
-
-  <script>
-    /***** CONFIG - Replace with your Firebase project's config *****/
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-    /***************************************************************/
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    // UI refs
-    const userEmailEl = document.getElementById('userEmail');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const tabs = document.querySelectorAll('.tab-btn');
-    const sections = document.querySelectorAll('main > section');
-    const monthChartCtx = document.getElementById('monthChart').getContext('2d');
-
-    let monthChart = null;
-    let currentUser = null;
-
-    // Tab switching
-    tabs.forEach(btn => {
-      btn.addEventListener('click', () => {
-        tabs.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        sections.forEach(s => s.classList.remove('active'));
-        document.getElementById(btn.dataset.tab).classList.add('active');
-        if (btn.dataset.tab === 'history') loadHistory();
-      });
-    });
-
-    // Auth guard: redirect to login if not logged in
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        // Not logged in -> redirect to index.html (login page)
-        window.location.href = 'index.html';
-      } else {
-        currentUser = user;
-        userEmailEl.textContent = user.email || user.displayName || 'User';
-        // initialize dashboard
-        buildDashboard();
-        loadHistory();
-      }
-    });
-
-    // Logout
-    logoutBtn.addEventListener('click', async () => {
-      await auth.signOut();
-      window.location.href = 'index.html';
-    });
-
-    // --- Helpers ---
-    function formatCurrency(v) {
-      return '₹' + Number(v || 0).toLocaleString('en-IN');
-    }
-
-    function toISODate(d) {
-      const year = d.getFullYear();
-      const month = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      return `${year}-${month}-${day}`;
-    }
-
-    // Adds a spend to Firestore under users/{uid}/spends
-    async function handleAddSpend() {
-      if (!currentUser) return alert('Not logged in');
-      const date = document.getElementById('spendDate').value;
-      const item = document.getElementById('spendItem').value.trim();
-      const price = parseFloat(document.getElementById('spendPrice').value);
-      const msg = document.getElementById('spendMsg');
-      msg.textContent = '';
-
-      if (!date || !item || isNaN(price)) {
-        msg.textContent = 'Enter valid date, item and price';
-        return;
-      }
-
-      try {
-        await db.collection('users').doc(currentUser.uid).collection('spends').add({
-          date, item, price
-        });
-        msg.textContent = 'Saved ✓';
-        document.getElementById('spendItem').value = '';
-        document.getElementById('spendPrice').value = '';
-        // refresh dashboard & history
-        buildDashboard();
-        loadHistory();
-      } catch (err) {
-        msg.textContent = 'Error: ' + err.message;
-      }
-    }
-
-    // Load last 5 purchases
-    async function loadHistory() {
-      if (!currentUser) return;
-      const list = document.getElementById('historyList');
-      list.innerHTML = '';
-      try {
-        const snap = await db.collection('users').doc(currentUser.uid).collection('spends')
-          .orderBy('date', 'desc').limit(5).get();
-        if (snap.empty) {
-          list.innerHTML = '<div class="small">No recent purchases.</div>';
-          return;
-        }
-        snap.forEach(doc => {
-          const e = doc.data();
-          const div = document.createElement('div');
-          div.className = 'list-item';
-          div.innerHTML = `<div><strong>${e.item}</strong><div class="small">${e.date}</div></div><div><strong>${formatCurrency(e.price)}</strong></div>`;
-          list.appendChild(div);
-        });
-      } catch (err) {
-        list.innerHTML = 'Error: ' + err.message;
-      }
-    }
-
-    // Build dashboard: today's total, this month total, top items, daily chart
-    async function buildDashboard() {
-      if (!currentUser) return;
-      const todayEl = document.getElementById('todayTotal');
-      const monthEl = document.getElementById('monthTotal');
-      const topItemsEl = document.getElementById('topItems');
-      const countMonthEl = document.getElementById('countMonth');
-      const todayDateEl = document.getElementById('todayDate');
-      const monthLabelEl = document.getElementById('monthLabel');
-
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth(); // 0-based
-      const isoMonthStart = `${year}-${String(month+1).padStart(2,'0')}-01`;
-
-      // We'll fetch all spends for the *year* and filter locally for the selected month (or fetch whole collection since dataset is small)
-      try {
-        const snap = await db.collection('users').doc(currentUser.uid).collection('spends').get();
-        const data = snap.docs.map(d => d.data());
-
-        // Today's total
-        const todayISO = toISODate(now);
-        const todayList = data.filter(e => e.date === todayISO);
-        const todayTotal = todayList.reduce((s,x) => s + (Number(x.price)||0), 0);
-        todayEl.textContent = formatCurrency(todayTotal);
-        todayDateEl.textContent = todayISO;
-
-        // This month's totals and counts
-        const monthList = data.filter(e => {
-          const d = new Date(e.date);
-          return d.getMonth() === month && d.getFullYear() === year;
-        });
-        const monthTotal = monthList.reduce((s,x) => s + (Number(x.price)||0), 0);
-        monthEl.textContent = formatCurrency(monthTotal);
-        countMonthEl.textContent = monthList.length + ' transactions';
-        const monthName = now.toLocaleString('default', { month: 'long' });
-        monthLabelEl.textContent = `${monthName} ${year}`;
-
-        // Top 3 items this month
-        const itemMap = {};
-        monthList.forEach(e => {
-          const k = e.item.trim().toLowerCase();
-          if (!itemMap[k]) itemMap[k] = { name: e.item, total: 0, count:0 };
-          itemMap[k].total += Number(e.price) || 0;
-          itemMap[k].count += 1;
-        });
-        const itemsArray = Object.values(itemMap).sort((a,b) => b.total - a.total);
-        if (itemsArray.length === 0) {
-          topItemsEl.textContent = '—';
-        } else {
-          topItemsEl.innerHTML = itemsArray.slice(0,3).map(it => `${it.name} — ${formatCurrency(it.total)}`).join('<br/>');
-        }
-
-        // Daily chart (days in month)
-        const daysInMonth = new Date(year, month+1, 0).getDate();
-        const labels = Array.from({length: daysInMonth}, (_,i) => String(i+1));
-        const daily = new Array(daysInMonth).fill(0);
-        monthList.forEach(e => {
-          const d = new Date(e.date);
-          const day = d.getDate();
-          daily[day-1] += Number(e.price) || 0;
-        });
-
-        drawMonthChart(labels, daily);
-
-      } catch (err) {
-        console.error('dashboard error', err);
-      }
-    }
-
-    // Draw or update the month chart
-    function drawMonthChart(labels, data) {
-      if (monthChart) monthChart.destroy();
-      monthChart = new Chart(monthChartCtx, {
-        type: 'bar',
-        data: { labels, datasets: [{ label: 'Daily spend', data }] },
-        options: {
-          scales: { y: { beginAtZero:true } },
-          plugins: { legend: { display:false } }
-        }
-      });
-    }
-
-    // Export spends to Excel between two dates
-    async function downloadExcel() {
-      if (!currentUser) return alert('Not logged in');
-      const from = document.getElementById('fromDate').value;
-      const to = document.getElementById('toDate').value;
-      const msg = document.getElementById('exportMsg');
-      msg.textContent = '';
-
-      if (!from || !to) {
-        msg.textContent = 'Select both dates';
-        return;
-      }
-      if (from > to) {
-        msg.textContent = '"From" must be before "To"';
-        return;
-      }
-
-      try {
-        // Firestore query using string ISO dates (works lexicographically)
-        const snap = await db.collection('users').doc(currentUser.uid).collection('spends')
-          .where('date', '>=', from).where('date', '<=', to).orderBy('date').get();
-
-        if (snap.empty) {
-          msg.textContent = 'No records in this range';
-          return;
-        }
-
-        const rows = snap.docs.map(d => d.data()).map(e => ({ Date: e.date, Item: e.item, Price: e.price }));
-        const total = rows.reduce((s,r) => s + Number(r.Price || 0), 0);
-        rows.push({ Date: 'TOTAL', Item: '', Price: total });
-
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Spends');
-        const filename = `Spends_${from}_to_${to}.xlsx`;
-        XLSX.writeFile(wb, filename);
-
-        msg.textContent = 'Exported: ' + filename;
-      } catch (err) {
-        msg.textContent = 'Error: ' + err.message;
-      }
-    }
-
-    // On first load: set default spendDate to today
-    (function setDefaults(){
-      const d = new Date();
-      const iso = toISODate(d);
-      const spendDateInput = document.getElementById('spendDate');
-      const fromDate = document.getElementById('fromDate');
-      const toDate = document.getElementById('toDate');
-      if (spendDateInput) spendDateInput.value = iso;
-      if (fromDate) fromDate.value = iso;
-      if (toDate) toDate.value = iso;
-      const todayDateEl = document.getElementById('todayDate');
-      if (todayDateEl) todayDateEl.textContent = iso;
-    })();
-
+    // Load history on start
+    loadHistory();
   </script>
 </body>
 </html>
