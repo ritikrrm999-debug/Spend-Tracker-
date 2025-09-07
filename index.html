@@ -3,68 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>💰 Money Spend Tracker</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; }
-    nav { margin-top: 10px; }
-    nav button { margin-right: 10px; }
-    #auth-section, #user-info { margin: 20px 0; }
-    .hidden { display: none; }
-  </style>
+  <title>Spend Tracker - Login</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h2>💰 Money Spend Tracker</h2>
-    <button id="logout-btn" class="hidden">Logout</button>
-  </header>
+  <h2>Spend Tracker Login</h2>
 
-  <!-- Navigation -->
-  <nav>
-    <button onclick="showSection('home')">Home</button>
-    <button onclick="showSection('spend')">Spend</button>
-    <button onclick="showSection('history')">History</button>
-    <button onclick="showSection('export')">Export</button>
-  </nav>
+  <button onclick="showLogin()">Login</button>
+  <button onclick="showSignup()">Signup</button>
+  <button id="google-login">Sign in with Google</button>
 
-  <!-- Authentication Section -->
-  <section id="auth-section">
-    <h3>Welcome! Please login or sign up</h3>
-    <button id="show-login">Login</button>
-    <button id="show-signup">Sign Up</button>
-    <button id="google-login">Sign in with Google</button>
+  <div id="login-popup" style="display:none;">
+    <h3>Login</h3>
+    <input type="email" id="login-email" placeholder="Email"><br>
+    <input type="password" id="login-password" placeholder="Password"><br>
+    <button id="login-btn">Login</button>
+    <button onclick="closePopup('login-popup')">Close</button>
+  </div>
 
-    <!-- Login Popup -->
-    <div id="login-popup" class="hidden">
-      <h4>Login</h4>
-      <input type="email" id="login-email" placeholder="Email"><br>
-      <input type="password" id="login-password" placeholder="Password"><br>
-      <button id="login-btn">Login</button>
-    </div>
+  <div id="signup-popup" style="display:none;">
+    <h3>Signup</h3>
+    <input type="email" id="signup-email" placeholder="Email"><br>
+    <input type="password" id="signup-password" placeholder="Password"><br>
+    <button id="signup-btn">Signup</button>
+    <button onclick="closePopup('signup-popup')">Close</button>
+  </div>
 
-    <!-- Signup Popup -->
-    <div id="signup-popup" class="hidden">
-      <h4>Sign Up</h4>
-      <input type="email" id="signup-email" placeholder="Email"><br>
-      <input type="password" id="signup-password" placeholder="Password"><br>
-      <button id="signup-btn">Sign Up</button>
-    </div>
-  </section>
-
-  <!-- User Info Section -->
-  <section id="user-info" class="hidden">
-    <h3>Hello, <span id="user-email"></span></h3>
-    <p>Now you can track your spending!</p>
-    <!-- Your spend tracker UI will go here -->
-  </section>
-
-  <!-- Firebase + XLSX -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- Your App Logic -->
   <script src="main.js"></script>
+  <script>
+    function showLogin(){ document.getElementById('login-popup').style.display='block'; }
+    function showSignup(){ document.getElementById('signup-popup').style.display='block'; }
+    function closePopup(id){ document.getElementById(id).style.display='none'; }
+  </script>
 </body>
 </html>
