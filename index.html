@@ -2,471 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Money Spend Tracker</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💰 Money Spend Tracker</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f4f4f9; margin:0; padding:0; }
-    header { background:#4a90e2; color:white; padding:15px; text-align:center; font-size:20px; position:relative; }
-    #logout-btn { position:absolute; right:15px; top:15px; background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; display:none; }
-
-    #auth-buttons { display:flex; justify-content:center; margin:50px 0; gap:20px; }
-    .auth-btn { padding:12px 20px; border:none; border-radius:6px; cursor:pointer; font-size:16px; }
-    .login { background:#3498db; color:white; }
-    .signup { background:#2ecc71; color:white; }
-    .google { background:#db4437; color:white; }
-
-    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
-    .modal-content { background:white; padding:20px; border-radius:8px; width:300px; text-align:center; }
-    .modal input { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:4px; }
-    .modal button { margin-top:10px; padding:10px; width:100%; border:none; border-radius:6px; background:#4a90e2; color:white; cursor:pointer; }
-
-    #app { display:none; padding:20px; }
-    nav { display:flex; justify-content:space-around; background:#333; }
-    nav button { flex:1; padding:12px; background:#333; border:none; color:white; cursor:pointer; font-size:16px; }
-    nav button.active { background:#4a90e2; }
-    section { display:none; padding:20px; }
-    section.active { display:block; }
-    .list { margin-top:15px; }
-    .list-item { background:white; padding:10px; margin-bottom:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    nav { margin-top: 10px; }
+    nav button { margin-right: 10px; }
+    #auth-section, #user-info { margin: 20px 0; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <header>
-    💰 Money Spend Tracker
-    <button id="logout-btn">Logout</button>
+    <h2>💰 Money Spend Tracker</h2>
+    <button id="logout-btn" class="hidden">Logout</button>
   </header>
 
-  <!-- Auth Buttons -->
-  <div id="auth-section">
-    <div id="auth-buttons">
-      <button class="auth-btn login" onclick="openModal('login')">Login</button>
-      <button class="auth-btn signup" onclick="openModal('signup')">Signup</button>
-      <button class="auth-btn google" onclick="googleLogin()">Sign in with Google</button>
+  <!-- Navigation -->
+  <nav>
+    <button onclick="showSection('home')">Home</button>
+    <button onclick="showSection('spend')">Spend</button>
+    <button onclick="showSection('history')">History</button>
+    <button onclick="showSection('export')">Export</button>
+  </nav>
+
+  <!-- Authentication Section -->
+  <section id="auth-section">
+    <h3>Welcome! Please login or sign up</h3>
+    <button id="show-login">Login</button>
+    <button id="show-signup">Sign Up</button>
+    <button id="google-login">Sign in with Google</button>
+
+    <!-- Login Popup -->
+    <div id="login-popup" class="hidden">
+      <h4>Login</h4>
+      <input type="email" id="login-email" placeholder="Email"><br>
+      <input type="password" id="login-password" placeholder="Password"><br>
+      <button id="login-btn">Login</button>
     </div>
-  </div>
 
-  <!-- Login/Signup Modal -->
-  <div id="auth-modal" class="modal">
-    <div class="modal-content">
-      <h3 id="modal-title">Login</h3>
-      <input type="email" id="auth-email" placeholder="Email">
-      <input type="password" id="auth-password" placeholder="Password">
-      <button id="auth-submit">Submit</button>
-      <button onclick="closeModal()" style="background:#aaa;">Cancel</button>
+    <!-- Signup Popup -->
+    <div id="signup-popup" class="hidden">
+      <h4>Sign Up</h4>
+      <input type="email" id="signup-email" placeholder="Email"><br>
+      <input type="password" id="signup-password" placeholder="Password"><br>
+      <button id="signup-btn">Sign Up</button>
     </div>
-  </div>
+  </section>
 
-  <!-- App -->
-  <div id="app">
-    <nav>
-      <button class="tab-btn active" data-tab="home">Home</button>
-      <button class="tab-btn" data-tab="spend">Spend</button>
-      <button class="tab-btn" data-tab="history">History</button>
-      <button class="tab-btn" data-tab="export">Export</button>
-    </nav>
-    <section id="home" class="active">
-      <h2>Check Spending by Date</h2>
-      <input type="date" id="homeDate">
-      <button onclick="showDaySpend()">Show</button>
-      <div id="homeResult" class="list"></div>
-    </section>
-    <section id="spend">
-      <h2>Add Spend</h2>
-      <input type="date" id="spendDate"><br>
-      <input type="text" id="spendItem" placeholder="Item name"><br>
-      <input type="number" id="spendPrice" placeholder="Amount"><br>
-      <button onclick="addSpend()">Save</button>
-    </section>
-    <section id="history">
-      <h2>Last 5 Purchases</h2>
-      <div id="historyList" class="list"></div>
-    </section>
-    <section id="export">
-      <h2>Download Data</h2>
-      <label>From:</label><br>
-      <input type="date" id="fromDate"><br>
-      <label>To:</label><br>
-      <input type="date" id="toDate"><br>
-      <button onclick="downloadExcel()">Download Excel</button>
-    </section>
-  </div>
+  <!-- User Info Section -->
+  <section id="user-info" class="hidden">
+    <h3>Hello, <span id="user-email"></span></h3>
+    <p>Now you can track your spending!</p>
+    <!-- Your spend tracker UI will go here -->
+  </section>
 
+  <!-- Firebase + XLSX -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Your App Logic -->
   <script src="main.js"></script>
-  <script>
-    const db = firebase.firestore();
-    let currentMode = "login";
-    let currentUser = null;
-
-    function openModal(mode) {
-      currentMode = mode;
-      document.getElementById("modal-title").innerText = mode === "login" ? "Login" : "Signup";
-      document.getElementById("auth-modal").style.display = "flex";
-    }
-    function closeModal() { document.getElementById("auth-modal").style.display = "none"; }
-
-    document.getElementById("auth-submit").addEventListener("click", () => {
-      const email = document.getElementById("auth-email").value;
-      const password = document.getElementById("auth-password").value;
-      if (currentMode === "login") {
-        auth.signInWithEmailAndPassword(email, password).catch(e => alert(e.message));
-      } else {
-        auth.createUserWithEmailAndPassword(email, password).catch(e => alert(e.message));
-      }
-    });
-
-    function googleLogin() {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(e => alert(e.message));
-    }
-
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        currentUser = user;
-        document.getElementById("auth-section").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        document.getElementById("logout-btn").style.display = "inline-block";
-        loadHistory();
-      } else {
-        currentUser = null;
-        document.getElementById("auth-section").style.display = "block";
-        document.getElementById("app").style.display = "none";
-        document.getElementById("logout-btn").style.display = "none";
-      }
-    });
-
-    document.getElementById("logout-btn").addEventListener("click", () => { auth.signOut(); });
-
-    // Add Spend
-    async function addSpend() {
-      if (!currentUser) return alert("Please login first!");
-      const date = document.getElementById("spendDate").value;
-      const item = document.getElementById("spendItem").value.trim();
-      const price = parseFloat(document.getElementById("spendPrice").value);
-      if (!date || !item || isNaN(price)) return alert("Fill all fields");
-      await db.collection("users").doc(currentUser.uid).collection("spends").add({
-        date, item, price, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      alert("Saved!");
-      document.getElementById("spendItem").value = "";
-      document.getElementById("spendPrice").value = "";
-      loadHistory();
-    }
-
-    // Show by Date
-    async function showDaySpend() {
-      if (!currentUser) return;
-      const date = document.getElementById("homeDate").value;
-      const resultDiv = document.getElementById("homeResult");
-      resultDiv.innerHTML = "";
-      if (!date) return alert("Select a date");
-      const snap = await db.collection("users").doc(currentUser.uid).collection("spends").where("date", "==", date).get();
-      let total = 0;
-      snap.forEach(doc => {
-        const e = doc.data();
-        total += e.price;
-        resultDiv.innerHTML += `<div class="list-item">${e.item} - ₹${e.price}</div>`;
-      });
-      resultDiv.innerHTML += `<div class="list-item"><b>Total: ₹${total}</b></div>`;
-    }
-
-    // History
-    async function loadHistory() {
-      if (!currentUser) return;
-      const snap = await db.collection("users").doc(currentUser.uid).collection("spends").orderBy("createdAt", "desc").limit(5).get();
-      const list = document.getElementById("historyList");
-      list.innerHTML = "";
-      snap.forEach(doc => {
-        const e = doc.data();
-        list.innerHTML += `<div class="list-item">${e.date}: ${e.item} - ₹${e.price}</div>`;
-      });
-    }
-
-    // Export to Excel
-    async function downloadExcel() {
-      if (!currentUser) return;
-      const from = document.getElementById("fromDate").value;
-      const to = document.getElementById("toDate").value;
-      if (!from || !to) return alert("Select both dates");
-      const snap = await db.collection("users").doc(currentUser.uid).collection("spends")
-        .where("date", ">=", from).where("date", "<=", to).orderBy("date").get();
-      let data = [];
-      snap.forEach(doc => data.push(doc.data()));
-      if (data.length === 0) return alert("No records found");
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Spends");
-      XLSX.writeFile(wb, `Spends_${from}_to_${to}.xlsx`);
-    }
-
-    // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab).classList.add('active');
-      });
-    });
-  </script>
-</body>
-</html>      const data = getData();
-      data.push({ date, item, price });
-      saveData(data);
-      document.getElementById("spendMsg").innerText = "âœ… Saved!";
-      document.getElementById("spendItem").value = "";
-      document.getElementById("spendPrice").value = "";
-    }
-
-    // Week range
-    function getWeekRange(date) {
-      const d = new Date(date);
-      const day = d.getDay();
-      const monday = new Date(d);
-      monday.setDate(d.getDate() - ((day + 6) % 7));
-      monday.setHours(0,0,0,0);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23,59,59,999);
-      return [monday, sunday];
-    }
-
-    let weekChart, monthChart;
-
-    // Show spends + charts
-    function showDaySpend() {
-      const date = document.getElementById("homeDate").value;
-      const resultDiv = document.getElementById("homeResult");
-      const summaryDiv = document.getElementById("summaryResult");
-      resultDiv.innerHTML = ""; summaryDiv.innerHTML = "";
-      if (!date) { alert("Please select a date"); return; }
-
-      let data = getData();
-      let totalDay = 0;
-
-      const dayData = data.filter(e => e.date === date);
-      if (dayData.length === 0) {
-        resultDiv.innerHTML = "<p>No records for this date.</p>";
-      } else {
-        dayData.forEach((e, idx) => {
-          const div = document.createElement("div");
-          div.className = "list-item";
-          div.innerHTML = `
-            <span>${e.item} - â‚¹${e.price}</span>
-            <button onclick="editSpend('${date}', ${idx})">âœï¸</button>
-            <button onclick="deleteSpend('${date}', ${idx})">ðŸ—‘ï¸</button>
-          `;
-          resultDiv.appendChild(div);
-          totalDay += e.price;
-        });
-        resultDiv.innerHTML += `<div class="total">Total (Day): â‚¹${totalDay}</div>`;
-      }
-
-      drawCharts(date, data);
-    }
-
-    // Draw charts
-    function drawCharts(date, data) {
-      const summaryDiv = document.getElementById("summaryResult");
-
-      const [monday, sunday] = getWeekRange(date);
-      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-      let weeklyMap = {};
-      for (let i = 0; i < 7; ++i) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        weeklyMap[dayNames[i]] = { sum: 0, date: formatDateLocal(d) };
-      }
-      let totalWeek = 0;
-      data.forEach(e => {
-        const d = new Date(e.date);
-        if (d >= monday && d <= sunday) {
-          totalWeek += e.price;
-          const idx = Math.floor((d - monday) / (1000*60*60*24));
-          if (idx >= 0 && idx < 7) weeklyMap[dayNames[idx]].sum += e.price;
-        }
-      });
-
-      const selDate = new Date(date);
-      const selMonth = selDate.getMonth();
-      const selYear = selDate.getFullYear();
-      let monthlyMap = {};
-      let totalMonth = 0, totalYear = 0;
-      data.forEach(e => {
-        const d = new Date(e.date);
-        if (d.getMonth() === selMonth && d.getFullYear() === selYear) {
-          const day = d.getDate();
-          monthlyMap[day] = (monthlyMap[day] || 0) + e.price;
-          totalMonth += e.price;
-        }
-        if (d.getFullYear() === selYear) totalYear += e.price;
-      });
-
-      summaryDiv.innerHTML = `
-        <h3>ðŸ“Š Summary</h3>
-        <p>Week Total: â‚¹${totalWeek}</p>
-        <p>Month Total: â‚¹${totalMonth}</p>
-        <p>Year Total: â‚¹${totalYear}</p>
-      `;
-
-      const weekCtx = document.getElementById("weekChart").getContext("2d");
-      const monthCtx = document.getElementById("monthChart").getContext("2d");
-      if (weekChart) weekChart.destroy();
-      if (monthChart) monthChart.destroy();
-
-      weekChart = new Chart(weekCtx, {
-        type: "bar",
-        data: {
-          labels: dayNames,
-          datasets: [{
-            label: "Weekly Spending",
-            data: dayNames.map(dn => weeklyMap[dn].sum),
-            backgroundColor: "#4a90e2"
-          }]
-        },
-        options: { scales: { y: { beginAtZero: true } } }
-      });
-
-      const daysInMonth = Object.keys(monthlyMap).map(Number).sort((a,b) => a-b);
-      monthChart = new Chart(monthCtx, {
-        type: "line",
-        data: {
-          labels: daysInMonth.map(String),
-          datasets: [{
-            label: "Monthly Spending",
-            data: daysInMonth.map(d => monthlyMap[d]),
-            fill: false,
-            borderColor: "blue"
-          }]
-        },
-        options: { scales: { y: { beginAtZero: true } } }
-      });
-    }
-
-    // Search by Item (partial match)
-    function searchItemSpend() {
-      const query = document.getElementById("searchItem").value.trim().toLowerCase();
-      const resultDiv = document.getElementById("itemResult");
-      const summaryDiv = document.getElementById("itemSummary");
-      resultDiv.innerHTML = ""; summaryDiv.innerHTML = "";
-
-      if (!query) { alert("Please enter an item name to search"); return; }
-
-      let data = getData();
-      let filtered = data.filter(e => e.item.toLowerCase().includes(query));
-
-      if (filtered.length === 0) {
-        resultDiv.innerHTML = `<p>No records found for "${query}".</p>`;
-        return;
-      }
-
-      let total = 0;
-      filtered.forEach(e => {
-        const div = document.createElement("div");
-        div.className = "list-item";
-        div.innerText = `${e.date}: â‚¹${e.price}`;
-        resultDiv.appendChild(div);
-        total += e.price;
-      });
-
-      const now = new Date();
-      const thisMonth = now.getMonth();
-      const thisYear = now.getFullYear();
-      let monthlyTotal = 0;
-      filtered.forEach(e => {
-        const d = new Date(e.date);
-        if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
-          monthlyTotal += e.price;
-        }
-      });
-
-      summaryDiv.innerHTML = `
-        <h3>ðŸ“Š Item Summary</h3>
-        <p>Total times spent: ${filtered.length}</p>
-        <p>Overall spend: â‚¹${total}</p>
-        <p>This month's spend: â‚¹${monthlyTotal}</p>
-      `;
-    }
-
-    // Edit spend
-    function editSpend(date, idx) {
-      const data = getData();
-      const dayData = data.filter(e => e.date === date);
-      const spend = dayData[idx];
-      const list = document.getElementById("homeResult").children;
-      const div = list[idx];
-      div.innerHTML = `
-        <input type="text" id="editItem" value="${spend.item}">
-        <input type="number" id="editPrice" value="${spend.price}">
-        <button onclick="saveEdit('${date}', ${idx})">ðŸ’¾ Save</button>
-        <button onclick="showDaySpend()">âŒ Cancel</button>
-      `;
-    }
-
-    function saveEdit(date, idx) {
-      let data = getData();
-      const matches = data.map((e,i) => ({...e,i})).filter(e => e.date === date);
-      const spendIndex = matches[idx].i;
-      const item = document.getElementById("editItem").value.trim();
-      const price = parseFloat(document.getElementById("editPrice").value);
-      if (!item || isNaN(price)) { alert("Enter valid values"); return; }
-      data[spendIndex].item = item;
-      data[spendIndex].price = price;
-      saveData(data);
-      showDaySpend();
-    }
-
-    function deleteSpend(date, idx) {
-      if (!confirm("Delete this record?")) return;
-      let data = getData();
-      const matches = data.map((e,i) => ({...e,i})).filter(e => e.date === date);
-      const spendIndex = matches[idx].i;
-      data.splice(spendIndex, 1);
-      saveData(data);
-      showDaySpend();
-    }
-
-    function loadHistory() {
-      const data = getData().slice(-5).reverse();
-      const list = document.getElementById("historyList");
-      list.innerHTML = "";
-      if (data.length === 0) { list.innerHTML = "<p>No recent purchases.</p>"; return; }
-      data.forEach(e => {
-        const div = document.createElement("div");
-        div.className = "list-item";
-        div.innerText = `${e.date}: ${e.item} - â‚¹${e.price}`;
-        list.appendChild(div);
-      });
-    }
-
-    function downloadExcel() {
-      const from = document.getElementById("fromDate").value;
-      const to = document.getElementById("toDate").value;
-      if (!from || !to) { alert("Please select both dates"); return; }
-
-      let data = getData().filter(e => {
-        const d = new Date(e.date);
-        return d >= new Date(from) && d <= new Date(to);
-      });
-
-      if (data.length === 0) { alert("No records found in this range"); return; }
-
-      data.sort((a,b) => new Date(a.date) - new Date(b.date));
-      const total = data.reduce((sum,e) => sum + e.price, 0);
-      data.push({ date: "TOTAL", item: "", price: total });
-
-      const exportData = data.map(e => {
-        if (e.date === "TOTAL") return e;
-        return { date: formatDateLocal(new Date(e.date)), item: e.item, price: e.price };
-      });
-
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Spends");
-      XLSX.writeFile(wb, `Spends_${from}_to_${to}.xlsx`);
-    }
-  </script>
 </body>
 </html>
