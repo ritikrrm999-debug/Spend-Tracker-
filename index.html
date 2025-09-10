@@ -2,40 +2,144 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <title>Login - Spend Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spend Tracker - Login</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      width: 350px;
+      text-align: center;
+    }
+    .container h2 {
+      margin-bottom: 20px;
+      font-size: 22px;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #4a90e2;
+      color: white;
+    }
+    .btn-google {
+      background: white;
+      color: #444;
+      border: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-google img {
+      width: 20px;
+      margin-right: 8px;
+    }
+    .link {
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .link a {
+      color: #4a90e2;
+      text-decoration: none;
+    }
+  </style>
 </head>
 <body>
-  <h2>Spend Tracker Login</h2>
+  <div class="container">
+    <h2>Welcome back</h2>
+    <input type="email" id="email" placeholder="Email address">
+    <input type="password" id="password" placeholder="Password">
 
-  <button onclick="showLogin()">Login</button>
-  <button onclick="showSignup()">Signup</button>
-  <button id="google-login">Sign in with Google</button>
+    <button class="btn-primary" onclick="login()">Login</button>
+    <button class="btn-primary" onclick="signup()">Sign Up</button>
 
-  <div id="login-popup" style="display:none;">
-    <h3>Login</h3>
-    <input type="email" id="login-email" placeholder="Email"><br>
-    <input type="password" id="login-password" placeholder="Password"><br>
-    <button id="login-btn">Login</button>
-    <button onclick="closePopup('login-popup')">Close</button>
+    <button class="btn-google" onclick="googleLogin()">
+      <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google"> Sign in with Google
+    </button>
+
+    <div class="link">Forgot password? <a href="#" onclick="resetPassword()">Reset</a></div>
   </div>
 
-  <div id="signup-popup" style="display:none;">
-    <h3>Signup</h3>
-    <input type="email" id="signup-email" placeholder="Email"><br>
-    <input type="password" id="signup-password" placeholder="Password"><br>
-    <button id="signup-btn">Signup</button>
-    <button onclick="closePopup('signup-popup')">Close</button>
-  </div>
-
-  <script src="main.js"></script>
   <script>
-    function showLogin(){ document.getElementById('login-popup').style.display='block'; }
-    function showSignup(){ document.getElementById('signup-popup').style.display='block'; }
-    function closePopup(id){ document.getElementById(id).style.display='none'; }
+    // 🔑 Firebase Config (replaced via GitHub secrets in main.js build)
+    const firebaseConfig = {
+      apiKey: "${FIREBASE_API_KEY}",
+      authDomain: "${FIREBASE_AUTH_DOMAIN}",
+      projectId: "${FIREBASE_PROJECT_ID}",
+      storageBucket: "${FIREBASE_STORAGE_BUCKET}",
+      messagingSenderId: "${FIREBASE_MESSAGING_SENDER_ID}",
+      appId: "${FIREBASE_APP_ID}"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // Login
+    function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => window.location.href = "app.html")
+        .catch(err => alert(err.message));
+    }
+
+    // Signup
+    function signup() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(() => window.location.href = "app.html")
+        .catch(err => alert(err.message));
+    }
+
+    // Google Login
+    function googleLogin() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(() => window.location.href = "app.html")
+        .catch(err => alert(err.message));
+    }
+
+    // Reset Password
+    function resetPassword() {
+      const email = document.getElementById("email").value;
+      if (!email) return alert("Enter your email first");
+      auth.sendPasswordResetEmail(email)
+        .then(() => alert("Password reset link sent to email"))
+        .catch(err => alert(err.message));
+    }
+
+    // Redirect if already logged in
+    auth.onAuthStateChanged(user => {
+      if (user) window.location.href = "app.html";
+    });
   </script>
 </body>
 </html>
